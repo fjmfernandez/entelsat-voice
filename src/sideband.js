@@ -47,12 +47,13 @@ export async function acceptCall(callId) {
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Accept call failed ${res.status}: ${err}`);
+    const errText = await res.text();
+    console.error(`[OPENAI] acceptCall error ${res.status}: ${errText}`);
+    throw new Error(`Accept call failed ${res.status}: ${errText}`);
   }
 
   const data = await res.json();
-  console.log(`[OPENAI] Llamada aceptada:`, data);
+  console.log(`[OPENAI] Llamada aceptada OK:`, JSON.stringify(data));
 
   // Abrir WebSocket sideband
   await openSidebandWebSocket(callId);

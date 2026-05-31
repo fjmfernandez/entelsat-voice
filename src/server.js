@@ -13,8 +13,20 @@ import { avisosStore, panelClients } from './toolHandler.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// ─── DEBUG LOG (últimos 30 webhooks recibidos) ────────────────────────────────
+const webhookDebugLog = [];
+
 const app = express();
 app.set('trust proxy', true);
+
+// Capturar raw body ANTES de json() para debugging
+app.use((req, res, next) => {
+  let data = '';
+  req.on('data', chunk => { data += chunk; });
+  req.on('end', () => { req.rawBody = data; });
+  next();
+});
+
 app.use(express.json());
 
 // ─── CORS + CSP ───────────────────────────────────────────────────────────────
@@ -60,12 +72,24 @@ app.get('/health', async (req, res) => {
 // Este es el endpoint que OpenAI llama cuando entra una llamada SIP
 app.post('/openai-webhook', async (req, res) => {
   const event = req.body;
+  const ts = new Date().toISOString();
 
-  console.log(`[WEBHOOK] Evento recibido: ${event?.type}`);
+  // Guardar TODOS los datos del webhook para diagnóstico
+  const debugEntry = {
+    ts,
+    headers: req.headers,
+    rawBody: req.rawBody || '',
+    parsedBody: event,
+    ip: req.ip,
+  };
+  webhookDebugLog.unshift(debugEntry);
+  if (webhookDebugLog.length > 30) webhookDebugLog.pop();
+
+  console.log(`[WEBHOOK] ${ts} — IP: ${req.ip} — Content-Type: ${req.headers['content-type']} — Body: ${JSON.stringify(event)}`);
 
   // Verificación básica del evento
   if (!event || event.type !== 'realtime.call.incoming') {
-    console.warn('[WEBHOOK] Evento ignorado:', event?.type);
+    console.warn(`[WEBHOOK] Evento ignorado (tipo: ${event?.type}). Raw body: ${req.rawBody?.substring(0, 200)}`);
     return res.status(200).json({ ok: true });
   }
 
@@ -85,9 +109,31 @@ app.post('/openai-webhook', async (req, res) => {
   try {
     await acceptCall(callId);
     console.log(`[WEBHOOK] Llamada ${callId} aceptada y sideband activo`);
+    webhookDebugLog[0].acceptResult = 'ok';
   } catch (err) {
     console.error(`[WEBHOOK] Error aceptando llamada ${callId}:`, err.message);
+    webhookDebugLog[0].acceptError = err.message;
   }
+});
+
+// ─── DEBUG ENDPOINT ───────────────────────────────────────────────────────────
+// Ver los últimos webhooks recibidos: GET /debug/webhooks
+app.get('/debug/webhooks', (req, res) => {
+  res.json({
+    ok: true,
+    count: webhookDebugLog.length,
+    webhooks: webhookDebugLog.map(e => ({
+      ts: e.ts,
+      ip: e.ip,
+      contentType: e.headers?.['content-type'],
+      bodyType: e.parsedBody?.type,
+      callId: e.parsedBody?.call_id,
+      rawBodyLength: e.rawBody?.length,
+      rawBodySample: e.rawBody?.substring(0, 300),
+      acceptResult: e.acceptResult,
+      acceptError: e.acceptError,
+    })),
+  });
 });
 
 // ─── API PANEL DE RECEPCIÓN ───────────────────────────────────────────────────
