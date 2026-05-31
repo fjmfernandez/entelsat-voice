@@ -93,10 +93,11 @@ app.post('/openai-webhook', async (req, res) => {
     return res.status(200).json({ ok: true });
   }
 
-  const callId = event.call_id;
+  // OpenAI envía: { type, data: { call_id, sip_headers, ... } }
+  const callId = event.data?.call_id || event.call_id;
 
   if (!callId) {
-    console.error('[WEBHOOK] Sin call_id en el evento');
+    console.error('[WEBHOOK] Sin call_id en el evento. Payload:', JSON.stringify(event));
     return res.status(400).json({ error: 'No call_id' });
   }
 
