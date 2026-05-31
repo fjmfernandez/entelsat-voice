@@ -16,6 +16,12 @@ const __dirname = dirname(__filename);
 // ─── DEBUG LOG (últimos 30 webhooks recibidos) ────────────────────────────────
 const webhookDebugLog = [];
 
+// ─── DEDUPLICACIÓN: sólo procesar 1 llamada a la vez ─────────────────────────
+// OpenAI puede enviar 10-20 webhooks simultáneos para una misma llamada SIP.
+// Aceptamos sólo el primero; los demás reciben 200 pero no se procesan.
+let activeCallUntil = 0;  // timestamp en ms hasta el que hay llamada activa
+const CALL_LOCK_MS = 30000; // 30 segundos de bloqueo por llamada
+
 const app = express();
 app.set('trust proxy', true);
 
@@ -101,10 +107,19 @@ app.post('/openai-webhook', async (req, res) => {
     return res.status(400).json({ error: 'No call_id' });
   }
 
-  console.log(`[WEBHOOK] Nueva llamada entrante: ${callId}`);
-
-  // Responder inmediatamente a OpenAI (no hacer await aquí)
+  // SIEMPRE responder 200 a OpenAI (evitar retries)
   res.status(200).json({ ok: true });
+
+  // Deduplicación: ignorar webhooks duplicados de la misma llamada SIP
+  const now = Date.now();
+  if (now < activeCallUntil) {
+    console.log(`[WEBHOOK] Duplicado ignorado: ${callId} (llamada activa hasta ${new Date(activeCallUntil).toISOString()})`);
+    webhookDebugLog[0].acceptResult = 'skipped_duplicate';
+    return;
+  }
+  activeCallUntil = now + CALL_LOCK_MS;
+
+  console.log(`[WEBHOOK] Procesando llamada: ${callId}`);
 
   // Aceptar la llamada en background
   try {
@@ -114,6 +129,7 @@ app.post('/openai-webhook', async (req, res) => {
   } catch (err) {
     console.error(`[WEBHOOK] Error aceptando llamada ${callId}:`, err.message);
     webhookDebugLog[0].acceptError = err.message;
+    activeCallUntil = 0; // liberar el lock si falla
   }
 });
 
