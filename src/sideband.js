@@ -46,14 +46,16 @@ export async function acceptCall(callId) {
     body: JSON.stringify(body),
   });
 
+  const responseText = await res.text();
+
   if (!res.ok) {
-    const errText = await res.text();
-    console.error(`[OPENAI] acceptCall error ${res.status}: ${errText}`);
-    throw new Error(`Accept call failed ${res.status}: ${errText}`);
+    console.error(`[OPENAI] acceptCall error ${res.status}: ${responseText}`);
+    throw new Error(`Accept call failed ${res.status}: ${responseText}`);
   }
 
-  const data = await res.json();
-  console.log(`[OPENAI] Llamada aceptada OK:`, JSON.stringify(data));
+  // OpenAI puede devolver 200 con JSON o 204 sin body — ambos son éxito
+  const data = responseText ? JSON.parse(responseText) : {};
+  console.log(`[OPENAI] Llamada aceptada OK (${res.status}):`, JSON.stringify(data));
 
   // Abrir WebSocket sideband
   await openSidebandWebSocket(callId);
