@@ -151,6 +151,8 @@ app.get('/debug/webhooks', (req, res) => {
       rawBodySample: e.rawBody?.substring(0, 300),
       acceptResult: e.acceptResult,
       acceptError: e.acceptError,
+      acceptStatus: e.acceptStatus,
+      acceptResponseSample: e.acceptResponseSample,
       // Sideband WebSocket tracking
       sidebandConnected: e.sidebandConnected,
       sidebandFirstEvent: e.sidebandFirstEvent,

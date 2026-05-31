@@ -18,22 +18,36 @@ export async function acceptCall(callId, debugEntry = null) {
 
   console.log(`[OPENAI] Aceptando llamada ${callId}...`);
 
+  // ─── FORMATO GA (API realtime estable) ──────────────────────────────────────
+  // CRÍTICO para SIP/telefonía:
+  //  - type: "realtime" es obligatorio en la API GA
+  //  - model: "gpt-realtime" (el preview gpt-4o-realtime-preview está deprecado)
+  //  - estructura anidada audio.input / audio.output
+  //  - formato audio/pcmu (G.711 µ-law) = códec de telefonía. Sin esto OpenAI
+  //    envía PCM 24kHz a una pata SIP que negocia G.711 8kHz y la llamada cae.
+  //  - SIN header OpenAI-Beta (forzaría la semántica beta antigua, incompatible).
   const body = {
-    model: 'gpt-4o-realtime-preview',
-    modalities: ['audio', 'text'],
+    type: 'realtime',
+    model: 'gpt-realtime',
     instructions: SYSTEM_INSTRUCTIONS,
-    voice: 'alloy',
+    audio: {
+      input: {
+        format: { type: 'audio/pcmu' },
+        turn_detection: {
+          type: 'server_vad',
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 600,
+        },
+        transcription: { model: 'whisper-1' },
+      },
+      output: {
+        format: { type: 'audio/pcmu' },
+        voice: 'alloy',
+      },
+    },
     tools: TOOLS,
     tool_choice: 'auto',
-    turn_detection: {
-      type: 'server_vad',
-      threshold: 0.5,
-      prefix_padding_ms: 300,
-      silence_duration_ms: 600,
-    },
-    input_audio_transcription: {
-      model: 'whisper-1',
-    },
   };
 
   const res = await fetch(url, {
@@ -41,12 +55,16 @@ export async function acceptCall(callId, debugEntry = null) {
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       'Content-Type': 'application/json',
-      'OpenAI-Beta': 'realtime=v1',
     },
     body: JSON.stringify(body),
   });
 
   const responseText = await res.text();
+
+  if (debugEntry) {
+    debugEntry.acceptStatus = res.status;
+    debugEntry.acceptResponseSample = responseText?.substring(0, 300);
+  }
 
   if (!res.ok) {
     console.error(`[OPENAI] acceptCall error ${res.status}: ${responseText}`);
@@ -66,14 +84,14 @@ export async function acceptCall(callId, debugEntry = null) {
 // ─── WEBSOCKET SIDEBAND ───────────────────────────────────────────────────────
 
 async function openSidebandWebSocket(callId, debugEntry = null) {
-  const wsUrl = `wss://api.openai.com/v1/realtime/calls/${callId}/sideband`;
+  // GA: la conexión de monitorización usa ?call_id=… (sin header OpenAI-Beta)
+  const wsUrl = `wss://api.openai.com/v1/realtime?call_id=${callId}`;
 
   console.log(`[SIDEBAND] Abriendo WebSocket para call ${callId}...`);
 
   const ws = new WebSocket(wsUrl, {
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'OpenAI-Beta': 'realtime=v1',
     },
   });
 
