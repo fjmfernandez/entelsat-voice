@@ -122,13 +122,15 @@ app.post('/openai-webhook', async (req, res) => {
   console.log(`[WEBHOOK] Procesando llamada: ${callId}`);
 
   // Aceptar la llamada en background
+  // Pasamos el debugEntry para que sideband.js pueda escribir su estado directamente
+  const currentDebugEntry = webhookDebugLog[0];
   try {
-    await acceptCall(callId);
+    await acceptCall(callId, currentDebugEntry);
     console.log(`[WEBHOOK] Llamada ${callId} aceptada y sideband activo`);
-    webhookDebugLog[0].acceptResult = 'ok';
+    currentDebugEntry.acceptResult = 'ok';
   } catch (err) {
     console.error(`[WEBHOOK] Error aceptando llamada ${callId}:`, err.message);
-    webhookDebugLog[0].acceptError = err.message;
+    currentDebugEntry.acceptError = err.message;
     activeCallUntil = 0; // liberar el lock si falla
   }
 });
@@ -144,11 +146,17 @@ app.get('/debug/webhooks', (req, res) => {
       ip: e.ip,
       contentType: e.headers?.['content-type'],
       bodyType: e.parsedBody?.type,
-      callId: e.parsedBody?.call_id,
+      callId: e.parsedBody?.data?.call_id || e.parsedBody?.call_id,
       rawBodyLength: e.rawBody?.length,
       rawBodySample: e.rawBody?.substring(0, 300),
       acceptResult: e.acceptResult,
       acceptError: e.acceptError,
+      // Sideband WebSocket tracking
+      sidebandConnected: e.sidebandConnected,
+      sidebandFirstEvent: e.sidebandFirstEvent,
+      sidebandFirstEventTs: e.sidebandFirstEventTs,
+      sidebandError: e.sidebandError,
+      sidebandClosed: e.sidebandClosed,
     })),
   });
 });

@@ -13,7 +13,7 @@ export function getActiveSessions() {
 
 // ─── ACEPTAR LLAMADA ──────────────────────────────────────────────────────────
 
-export async function acceptCall(callId) {
+export async function acceptCall(callId, debugEntry = null) {
   const url = `https://api.openai.com/v1/realtime/calls/${callId}/accept`;
 
   console.log(`[OPENAI] Aceptando llamada ${callId}...`);
@@ -58,14 +58,14 @@ export async function acceptCall(callId) {
   console.log(`[OPENAI] Llamada aceptada OK (${res.status}):`, JSON.stringify(data));
 
   // Abrir WebSocket sideband
-  await openSidebandWebSocket(callId);
+  await openSidebandWebSocket(callId, debugEntry);
 
   return data;
 }
 
 // ─── WEBSOCKET SIDEBAND ───────────────────────────────────────────────────────
 
-async function openSidebandWebSocket(callId) {
+async function openSidebandWebSocket(callId, debugEntry = null) {
   const wsUrl = `wss://api.openai.com/v1/realtime/calls/${callId}/sideband`;
 
   console.log(`[SIDEBAND] Abriendo WebSocket para call ${callId}...`);
@@ -81,6 +81,7 @@ async function openSidebandWebSocket(callId) {
 
   ws.on('open', () => {
     console.log(`[SIDEBAND] Conectado — call_id: ${callId}`);
+    if (debugEntry) debugEntry.sidebandConnected = new Date().toISOString();
   });
 
   ws.on('message', async (raw) => {
@@ -91,17 +92,28 @@ async function openSidebandWebSocket(callId) {
       return;
     }
 
+    // Log first event received from OpenAI for debugging
+    if (debugEntry && !debugEntry.sidebandFirstEvent) {
+      debugEntry.sidebandFirstEvent = event.type;
+      debugEntry.sidebandFirstEventTs = new Date().toISOString();
+    }
+
     await handleSidebandEvent(event, callId, ws);
   });
 
   ws.on('close', (code, reason) => {
-    console.log(`[SIDEBAND] Cerrado — call_id: ${callId} — código: ${code}`);
+    const reasonStr = reason?.toString() || '';
+    console.log(`[SIDEBAND] Cerrado — call_id: ${callId} — código: ${code} — motivo: ${reasonStr}`);
     activeSessions.delete(callId);
+    if (debugEntry) {
+      debugEntry.sidebandClosed = { code, reason: reasonStr, ts: new Date().toISOString() };
+    }
   });
 
   ws.on('error', (err) => {
     console.error(`[SIDEBAND] Error — call_id: ${callId}:`, err.message);
     activeSessions.delete(callId);
+    if (debugEntry) debugEntry.sidebandError = err.message;
   });
 
   // Timeout de seguridad: 30 minutos máximo por llamada
