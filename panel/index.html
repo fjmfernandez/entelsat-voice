@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ENTELSAT — Panel de Recepción</title>
+  <link rel="icon" type="image/png" href="isotipo.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  </style>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ── Colores ENTELSAT ── */
+      --gold:          #F5A800;
+      --gold-dark:     #D98F00;
+      --gold-light:    #FFB929;
+      --gold-glow:     rgba(245,168,0,0.18);
+      --gold-subtle:   rgba(245,168,0,0.08);
+
+      --gray-brand:    #808285;
+      --gray-light:    #B0B2B5;
+
+      /* ── Fondo oscuro profesional ── */
+      --bg:    #0d0e10;
+      --bg2:   #141517;
+      --bg3:   #1a1c1f;
+      --bg4:   #202225;
+
+      --border:  rgba(255,255,255,0.06);
+      --border2: rgba(255,255,255,0.11);
+      --border-gold: rgba(245,168,0,0.25);
+
+      --text:  #e6e8ec;
+      --muted: #6b7280;
+
+      /* ── Urgencias ── */
+      --urg-baja:    #22c55e;
+      --urg-media:   #f59e0b;
+      --urg-alta:    #f97316;
+      --urg-critica: #ef4444;
+
+      --tipo-lead:     #a855f7;
+      --tipo-transfer: #ef4444;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ══════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════ */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 60px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border-gold);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 20px rgba(0,0,0,0.4);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-img {
+      height: 36px;
+      width: auto;
+      /* El logo tiene fondo blanco; lo invertimos para fondo oscuro */
+      filter: brightness(0) invert(1);
+      opacity: 0.92;
+    }
+
+    .header-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--border2);
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      gap: 24px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .stat-num.gold { color: var(--gold); }
+    .stat-num.red  { color: var(--urg-critica); }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 3px;
+    }
+
+    /* WS status */
+    .ws-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--muted);
+    }
+
+    .ws-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+
+    .ws-dot.connected {
+      background: var(--urg-baja);
+      box-shadow: 0 0 7px var(--urg-baja);
+      animation: pulse-dot 2.5s infinite;
+    }
+
+    .ws-dot.error { background: var(--urg-critica); }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    /* ══════════════════════════════════════════
+       BARRA DE FILTROS
+    ══════════════════════════════════════════ */
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 24px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .filter-btn {
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
+    .filter-btn:hover {
+      border-color: var(--border-gold);
+      color: var(--gold-light);
+    }
+
+    .filter-btn.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #000;
+      font-weight: 600;
+    }
+
+    /* ══════════════════════════════════════════
+       LAYOUT PRINCIPAL
+    ══════════════════════════════════════════ */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      overflow: hidden;
+      height: calc(100vh - 60px - 49px);
+    }
+
+    /* ══════════════════════════════════════════
+       LISTA DE AVISOS
+    ══════════════════════════════════════════ */
+    .avisos-lista {
+      overflow-y: auto;
+      padding: 14px 16px;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 320px;
+      gap: 14px;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      width: 64px;
+      height: 64px;
+      opacity: 0.15;
+    }
+
+    .empty-state p { font-size: 13px; }
+    .empty-state .empty-sub { font-size: 11px; margin-top: 2px; opacity: 0.7; }
+
+    /* ── TARJETA ── */
+    .aviso-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 14px 14px 18px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .aviso-card:hover {
+      border-color: var(--border-gold);
+      background: var(--bg3);
+      transform: translateX(2px);
+    }
+
+    .aviso-card.selected {
+      border-color: var(--gold);
+      background: var(--bg3);
+      box-shadow: 0 0 0 1px var(--gold-glow), inset 0 0 20px var(--gold-subtle);
+    }
+
+    .aviso-card.atendido { opacity: 0.38; }
+
+    /* Barra lateral de urgencia */
+    .aviso-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      border-radius: 10px 0 0 10px;
+    }
+
+    .aviso-card[data-urgencia="baja"]::before    { background: var(--urg-baja); }
+    .aviso-card[data-urgencia="media"]::before   { background: var(--urg-media); }
+    .aviso-card[data-urgencia="alta"]::before    { background: var(--urg-alta); }
+    .aviso-card[data-urgencia="crítica"]::before { background: var(--urg-critica); box-shadow: 2px 0 8px var(--urg-critica); }
+    .aviso-card[data-tipo="lead"]::before        { background: var(--tipo-lead); }
+    .aviso-card[data-tipo="transfer"]::before    { background: var(--tipo-transfer); }
+
+    .aviso-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .aviso-nombre {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .aviso-badges {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .badge-urgencia-baja    { background: rgba(34,197,94,0.12);   color: var(--urg-baja); }
+    .badge-urgencia-media   { background: rgba(245,158,11,0.12);  color: var(--urg-media); }
+    .badge-urgencia-alta    { background: rgba(249,115,22,0.12);  color: var(--urg-alta); }
+    .badge-urgencia-critica { background: rgba(239,68,68,0.15);   color: var(--urg-critica); }
+    .badge-lead             { background: rgba(168,85,247,0.12);  color: var(--tipo-lead); }
+    .badge-transfer         { background: rgba(239,68,68,0.12);   color: var(--tipo-transfer); }
+
+    .aviso-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .aviso-meta span { display: flex; align-items: center; gap: 3px; }
+
+    .aviso-servicio {
+      font-size: 11px;
+      color: var(--gold);
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0.02em;
+    }
+
+    .aviso-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .aviso-time {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 8px;
+      opacity: 0.7;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(-16px); opacity: 0; }
+      to   { transform: translateX(0);     opacity: 1; }
+    }
+
+    .aviso-card.nuevo { animation: slideIn 0.28s ease-out; }
+
+    /* ══════════════════════════════════════════
+       PANEL DETALLE
+    ══════════════════════════════════════════ */
+    .detalle {
+      overflow-y: auto;
+      padding: 20px;
+      background: var(--bg);
+    }
+
+    .detalle-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    .detalle-header {
+      margin-bottom: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detalle-titulo {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .detalle-id {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .detalle-seccion {
+      margin-bottom: 18px;
+    }
+
+    .detalle-seccion-titulo {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      font-weight: 600;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-gold);
+    }
+
+    .detalle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detalle-row:last-child { border-bottom: none; }
+
+    .detalle-key { color: var(--muted); flex-shrink: 0; font-size: 11px; }
+
+    .detalle-val {
+      color: var(--text);
+      text-align: right;
+      word-break: break-word;
+      font-weight: 500;
+    }
+
+    .detalle-desc-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    .urgencia-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    .urgencia-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    .btn-atender {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: var(--gold);
+      color: #000;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 18px;
+      transition: all 0.15s;
+      letter-spacing: 0.04em;
+    }
+
+    .btn-atender:hover { background: var(--gold-light); }
+    .btn-atender:disabled { opacity: 0.35; cursor: default; }
+
+    .btn-llamar {
+      width: 100%;
+      padding: 11px;
+      border-radius: 8px;
+      border: 1px solid var(--border-gold);
+      background: var(--gold-subtle);
+      color: var(--gold-light);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: block;
+      text-align: center;
+    }
+
+    .btn-llamar:hover {
+      background: var(--gold-glow);
+      border-color: var(--gold);
+    }
+
+    /* ══════════════════════════════════════════
+       TOAST
+    ══════════════════════════════════════════ */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg3);
+      border: 1px solid var(--border-gold);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+      max-width: 320px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px var(--gold-subtle);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    #toast.visible { transform: translateY(0); opacity: 1; }
+    #toast.urgencia-alta    { border-left: 3px solid var(--urg-alta); }
+    #toast.urgencia-critica { border-left: 3px solid var(--urg-critica); box-shadow: 0 8px 32px rgba(239,68,68,0.2); }
+
+    .toast-titulo { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+    .toast-sub { color: var(--muted); font-size: 11px; }
+
+    /* ══════════════════════════════════════════
+       SCROLLBAR
+    ══════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-gold); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <img src="logo.png" alt="ENTELSAT" class="logo-img">
+    <div class="header-divider"></div>
+    <span class="header-subtitle">Panel de Recepción</span>
+  </div>
+
+  <div class="header-right">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num gold" id="stat-pendientes">0</div>
+        <div class="stat-label">Pendientes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num red" id="stat-criticas">0</div>
+        <div class="stat-label">Críticas</div>
+      </div>
+    </div>
+
+    <div class="ws-status">
+      <div class="ws-dot" id="ws-dot"></div>
+      <span id="ws-label">Conectando…</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── FILTROS ────────────────────────────────────────────────────── -->
+<div class="filters">
+  <button class="filter-btn active" data-filter="todos">Todos</button>
+  <button class="filter-btn" data-filter="averia_hotel">Averías hotel</button>
+  <button class="filter-btn" data-filter="averia_comunidad">Averías comunidad</button>
+  <button class="filter-btn" data-filter="lead_presupuesto">Leads</button>
+  <button class="filter-btn" data-filter="pendientes">Pendientes</button>
+  <button class="filter-btn" data-filter="criticos">Críticos / Altos</button>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────────────────── -->
+<main>
+  <div class="avisos-lista" id="lista">
+    <div class="empty-state" id="empty">
+      <img src="isotipo.png" alt="" class="empty-icon">
+      <p>Esperando llamadas…</p>
+      <p class="empty-sub">Los avisos aparecerán aquí en tiempo real</p>
+    </div>
+  </div>
+
+  <div class="detalle" id="detalle">
+    <div class="detalle-empty">
+      <span style="font-size:26px; opacity:0.2;">←</span>
+      <p>Selecciona un aviso para ver el detalle</p>
+    </div>
+  </div>
+</main>
+
+<!-- ── TOAST ──────────────────────────────────────────────────────── -->
+<div id="toast">
+  <div class="toast-titulo" id="toast-titulo"></div>
+  <div class="toast-sub" id="toast-sub"></div>
+</div>
+
+<script>
+// ── ESTADO ───────────────────────────────────────────────────────────────────
+let avisos = [];
+let filtroActivo = 'todos';
+let avisoSeleccionado = null;
+let ws = null;
+let wsReconnectTimer = null;
+
+const isHTTPS = window.location.protocol === 'https:';
+const WS_URL = (isHTTPS ? 'wss' : 'ws') + '://' + window.location.host + '/ws/panel';
+const API_URL = window.location.origin;
+
+// ── WEBSOCKET ─────────────────────────────────────────────────────────────────
+function conectarWS() {
+  setWsStatus('connecting');
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    setWsStatus('connected');
+    clearTimeout(wsReconnectTimer);
+  };
+
+  ws.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+
+    if (msg.type === 'sync') {
+      avisos = msg.avisos || [];
+      renderLista();
+      actualizarStats();
+    } else if (msg.type === 'nuevo_aviso') {
+      avisos.unshift(msg.aviso);
+      renderLista();
+      actualizarStats();
+      mostrarToast(msg.aviso);
+      if (Notification.permission === 'granted') notificarBrowser(msg.aviso);
+    } else if (msg.type === 'aviso_atendido') {
+      const av = avisos.find(a => a.id === msg.id);
+      if (av) av.atendido = true;
+      renderLista();
+      actualizarStats();
+    }
+  };
+
+  ws.onclose = () => {
+    setWsStatus('disconnected');
+    wsReconnectTimer = setTimeout(conectarWS, 3000);
+  };
+
+  ws.onerror = () => setWsStatus('error');
+}
+
+function setWsStatus(status) {
+  const dot = document.getElementById('ws-dot');
+  const label = document.getElementById('ws-label');
+  dot.className = 'ws-dot';
+  if (status === 'connected')     { dot.classList.add('connected'); label.textContent = 'En línea'; }
+  else if (status === 'error')    { dot.classList.add('error');     label.textContent = 'Error'; }
+  else if (status === 'disconnected') label.textContent = 'Reconectando…';
+  else label.textContent = 'Conectando…';
+}
+
+// ── CARGA INICIAL ─────────────────────────────────────────────────────────────
+async function cargarAvisos() {
+  try {
+    const res = await fetch(`${API_URL}/api/avisos`);
+    const data = await res.json();
+    avisos = data.avisos || [];
+    renderLista();
+    actualizarStats();
+  } catch (e) {
+    console.warn('No se pudo cargar avisos iniciales:', e.message);
+  }
+}
+
+// ── RENDER LISTA ──────────────────────────────────────────────────────────────
+function avisosFiltrados() {
+  return avisos.filter(av => {
+    if (filtroActivo === 'todos') return true;
+    if (filtroActivo === 'pendientes') return !av.atendido;
+    if (filtroActivo === 'criticos') return (av.urgencia === 'crítica' || av.urgencia === 'alta') && !av.atendido;
+    return av.tipo === filtroActivo;
+  });
+}
+
+function renderLista() {
+  const lista = document.getElementById('lista');
+  const empty = document.getElementById('empty');
+  const filtrados = avisosFiltrados();
+
+  if (filtrados.length === 0) {
+    empty.style.display = 'flex';
+    lista.querySelectorAll('.aviso-card').forEach(c => c.remove());
+    return;
+  }
+  empty.style.display = 'none';
+
+  filtrados.forEach((av, i) => {
+    let card = lista.querySelector(`.aviso-card[data-id="${av.id}"]`);
+    if (!card) {
+      card = crearCard(av);
+      card.classList.add('nuevo');
+      lista.insertBefore(card, lista.children[i] || null);
+    } else {
+      actualizarCard(card, av);
+    }
+  });
+
+  lista.querySelectorAll('.aviso-card').forEach(card => {
+    if (!filtrados.find(av => av.id === card.dataset.id)) card.remove();
+  });
+}
+
+function crearCard(av) {
+  const card = document.createElement('div');
+  card.className = 'aviso-card';
+  card.dataset.id = av.id;
+  card.dataset.urgencia = av.urgencia || '';
+  card.dataset.tipo = av.tipo === 'lead_presupuesto' ? 'lead'
+                    : av.tipo === 'transferencia_humano' ? 'transfer' : '';
+  if (av.atendido) card.classList.add('atendido');
+  if (av.id === avisoSeleccionado?.id) card.classList.add('selected');
+  card.innerHTML = renderCardInner(av);
+  card.onclick = () => seleccionarAviso(av);
+  return card;
+}
+
+function actualizarCard(card, av) {
+  card.dataset.urgencia = av.urgencia || '';
+  card.innerHTML = renderCardInner(av);
+  card.className = 'aviso-card'
+    + (av.atendido ? ' atendido' : '')
+    + (av.id === avisoSeleccionado?.id ? ' selected' : '');
+  card.onclick = () => seleccionarAviso(av);
+}
+
+function renderCardInner(av) {
+  const nombre = av.hotel || av.comunidad || av.nombre || 'Sin nombre';
+  const hora  = new Date(av.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const fecha = new Date(av.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+
+  let badgeHTML = '';
+  if (av.urgencia) {
+    const urg = av.urgencia === 'crítica' ? 'critica' : av.urgencia;
+    badgeHTML += `<span class="badge badge-urgencia-${urg}">${av.urgencia}</span>`;
+  }
+  if (av.tipo === 'lead_presupuesto')   badgeHTML += `<span class="badge badge-lead">Lead</span>`;
+  if (av.tipo === 'transferencia_humano') badgeHTML += `<span class="badge badge-transfer">Transferir</span>`;
+
+  const servicio = av.servicio_afectado || av.servicio_interes || '';
+  const zona = av.zona_afectada || av.municipio || '';
+
+  return `
+    <div class="aviso-card-header">
+      <div class="aviso-nombre">${nombre}</div>
+      <div class="aviso-badges">${badgeHTML}</div>
+    </div>
+    <div class="aviso-meta">
+      ${zona ? `<span>📍 ${zona}</span>` : ''}
+      ${av.persona_contacto ? `<span>👤 ${av.persona_contacto}</span>` : ''}
+    </div>
+    ${servicio ? `<div class="aviso-servicio">${servicio}</div>` : ''}
+    ${av.descripcion ? `<div class="aviso-desc">${av.descripcion}</div>` : ''}
+    <div class="aviso-time">${fecha} · ${hora}${av.atendido ? ' · ✓ Atendido' : ''}</div>
+  `;
+}
+
+// ── DETALLE ───────────────────────────────────────────────────────────────────
+function seleccionarAviso(av) {
+  avisoSeleccionado = av;
+  document.querySelectorAll('.aviso-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === av.id);
+  });
+  renderDetalle(av);
+}
+
+function renderDetalle(av) {
+  const panel = document.getElementById('detalle');
+  const nombre = av.hotel || av.comunidad || av.nombre || 'Sin nombre';
+  const hora = new Date(av.fecha).toLocaleString('es-ES');
+
+  let urgenciaHTML = '';
+  if (av.urgencia) {
+    const colores = { baja: '#22c55e', media: '#f59e0b', alta: '#f97316', crítica: '#ef4444' };
+    const color = colores[av.urgencia] || '#fff';
+    urgenciaHTML = `
+      <div class="urgencia-indicator" style="background:${color}18; color:${color}; border:1px solid ${color}30;">
+        <div class="urgencia-dot" style="background:${color};"></div>
+        ${av.urgencia.toUpperCase()}
+      </div>`;
+  }
+
+  const filas = [];
+  const addFila = (key, val) => {
+    if (val) filas.push(`
+      <div class="detalle-row">
+        <span class="detalle-key">${key}</span>
+        <span class="detalle-val">${val}</span>
+      </div>`);
+  };
+
+  if (av.tipo === 'averia_hotel' || av.tipo === 'averia_comunidad') {
+    addFila('Hotel / Comunidad', av.hotel || av.comunidad);
+    addFila('Municipio', av.municipio);
+    addFila('Contacto', av.persona_contacto);
+    addFila('Teléfono', av.telefono ? `<a href="tel:${av.telefono}" style="color:var(--gold)">${av.telefono}</a>` : '');
+    addFila('Email', av.email ? `<a href="mailto:${av.email}" style="color:var(--gold)">${av.email}</a>` : '');
+    addFila('Servicio', av.servicio_afectado);
+    addFila('Zona', av.zona_afectada);
+    addFila('Horario', av.horario_disponible);
+  } else if (av.tipo === 'lead_presupuesto') {
+    addFila('Nombre', av.nombre);
+    addFila('Tipo cliente', av.tipo_cliente);
+    addFila('Teléfono', av.telefono ? `<a href="tel:${av.telefono}" style="color:var(--gold)">${av.telefono}</a>` : '');
+    addFila('Email', av.email ? `<a href="mailto:${av.email}" style="color:var(--gold)">${av.email}</a>` : '');
+    addFila('Servicio', av.servicio_interes);
+    addFila('Municipio', av.municipio);
+    addFila('Horario contacto', av.mejor_horario);
+  } else if (av.tipo === 'transferencia_humano') {
+    addFila('Motivo', av.motivo);
+  }
+
+  const desc = av.descripcion || av.resumen || '';
+
+  panel.innerHTML = `
+    <div class="detalle-header">
+      <div class="detalle-titulo">${nombre}</div>
+      <div class="detalle-id">${av.id} · ${hora}</div>
+    </div>
+
+    ${urgenciaHTML ? `<div style="margin-bottom:16px;">${urgenciaHTML}</div>` : ''}
+
+    <div class="detalle-seccion">
+      <div class="detalle-seccion-titulo">Datos de contacto</div>
+      ${filas.join('')}
+    </div>
+
+    ${desc ? `
+    <div class="detalle-seccion">
+      <div class="detalle-seccion-titulo">Descripción</div>
+      <div class="detalle-desc-box">${desc}</div>
+    </div>` : ''}
+
+    <div class="detalle-seccion">
+      <div class="detalle-seccion-titulo">Sistema</div>
+      <div class="detalle-row">
+        <span class="detalle-key">Call ID</span>
+        <span class="detalle-val" style="font-family:'IBM Plex Mono',monospace;font-size:10px;">${av.call_id || '-'}</span>
+      </div>
+    </div>
+
+    ${av.telefono ? `<a class="btn-llamar" href="tel:${av.telefono}">📞 Llamar a ${av.persona_contacto || av.nombre || 'contacto'}</a>` : ''}
+
+    <button class="btn-atender" id="btn-atender" ${av.atendido ? 'disabled' : ''}>
+      ${av.atendido ? '✓ Ya atendido' : 'Marcar como atendido'}
+    </button>
+  `;
+
+  document.getElementById('btn-atender')?.addEventListener('click', () => marcarAtendido(av.id));
+}
+
+async function marcarAtendido(id) {
+  try {
+    await fetch(`${API_URL}/api/avisos/${id}/atendido`, { method: 'POST' });
+    const av = avisos.find(a => a.id === id);
+    if (av) {
+      av.atendido = true;
+      renderLista();
+      renderDetalle(av);
+      actualizarStats();
+    }
+  } catch {
+    alert('Error al actualizar. Comprueba la conexión.');
+  }
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function actualizarStats() {
+  document.getElementById('stat-total').textContent      = avisos.length;
+  document.getElementById('stat-pendientes').textContent = avisos.filter(a => !a.atendido).length;
+  document.getElementById('stat-criticas').textContent   = avisos.filter(a => (a.urgencia === 'crítica' || a.urgencia === 'alta') && !a.atendido).length;
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+
+function mostrarToast(av) {
+  const toast = document.getElementById('toast');
+  const nombre = av.hotel || av.comunidad || av.nombre || 'Nuevo aviso';
+
+  document.getElementById('toast-titulo').textContent = nombre;
+  document.getElementById('toast-sub').textContent =
+    av.urgencia ? `${av.servicio_afectado || av.tipo} · Urgencia ${av.urgencia}`
+    : av.tipo === 'lead_presupuesto' ? `Lead: ${av.servicio_interes}` : av.tipo;
+
+  toast.className = 'visible';
+  if (av.urgencia) toast.classList.add(`urgencia-${av.urgencia === 'crítica' ? 'critica' : av.urgencia}`);
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = ''; }, 5000);
+}
+
+// ── NOTIFICACIONES ────────────────────────────────────────────────────────────
+function notificarBrowser(av) {
+  const nombre = av.hotel || av.comunidad || av.nombre || 'Aviso';
+  new Notification(`🔔 ${nombre}`, {
+    body: av.descripcion || av.tipo || '',
+    icon: '/isotipo.png',
+  });
+}
+
+// ── FILTROS ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroActivo = btn.dataset.filter;
+    renderLista();
+  });
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+if (Notification.permission === 'default') Notification.requestPermission();
+cargarAvisos();
+conectarWS();
+</script>
+</body>
+</html>
